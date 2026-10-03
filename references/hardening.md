@@ -58,6 +58,17 @@ bash /path/to/fix-aapanel/scripts/patch_acme_hybrid.sh
 nginx -t && nginx -s reload
 ```
 
+## PHP performance (run once per host / after new PHP version)
+
+Fresh aaPanel PHP installs often leave **OPcache disabled** → XenForo/WordPress TTFB 15s+ after migrate. Prevent that:
+
+```bash
+install -m 700 scripts/optimize_php_perf.sh /www/server/panel/script/optimize_php_perf.sh
+bash /www/server/panel/script/optimize_php_perf.sh --with-mysql --with-redis --with-nginx
+```
+
+Details + XenForo/WordPress app-layer notes: [php-perf.md](php-perf.md).
+
 ## Ops hygiene
 
 - Keep ≥15% free disk on `/`
@@ -65,3 +76,5 @@ nginx -t && nginx -s reload
 - Prefer DNS-only + firewall allowlist for panel ports
 - After LE issue, delete temp keys under `/tmp`
 - Never commit real `admin_path`, passwords, or private keys into this skill repo
+- After installing a new PHP version in the panel, re-run `optimize_php_perf.sh` (OPcache starts commented out again)
+- Cloudflare SSL: Full/strict for proxied sites — Flexible causes HTTPS redirect loops

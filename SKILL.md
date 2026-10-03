@@ -3,10 +3,13 @@ name: fix-aapanel
 description: >-
   Diagnose and fix aaPanel (BT Panel) production issues: panel unreachable,
   Cloudflare/domain bind, Virtual Host port 57001 SSL, Let's Encrypt auto-renew,
-  ACME HTTP-01 404/502, Node.js site SSL bind_extranet, and SSL metadata repair.
-  Use when the user mentions aaPanel, aapanel, BT Panel, vhost_virtual, port
-  14805/57001/60880, acme-challenge, SSL renew failures, panel login spinning,
-  NET::ERR_CERT_AUTHORITY_INVALID, or Vietnamese requests about panel/SSL/hosting.
+  ACME HTTP-01 404/502, Node.js site SSL bind_extranet, SSL metadata repair,
+  and post-migrate PHP slowness (OPcache off, FPM, InnoDB, Redis, nginx) for
+  XenForo/WordPress/all PHP versions. Use when the user mentions aaPanel,
+  aapanel, BT Panel, vhost_virtual, port 14805/57001/60880, acme-challenge,
+  SSL renew failures, panel login spinning, NET::ERR_CERT_AUTHORITY_INVALID,
+  TTFB chậm, OPcache, site chậm sau migrate, or Vietnamese requests about
+  panel/SSL/hosting/PHP performance.
 ---
 
 # fix-aapanel
@@ -21,7 +24,8 @@ Playbook for aaPanel + Virtual Host (`vhost_virtual`) ops. Prefer **diagnose →
 | Port 57001 SSL invalid / HSTS | [references/access.md](references/access.md) §57001 |
 | Site SSL expired / renew fail / `24 hours only renew once` | [references/ssl-renew.md](references/ssl-renew.md) |
 | Node site LE 403 / no nginx vhost | [references/nodejs.md](references/nodejs.md) |
-| Install preventative cron / sync | [references/hardening.md](references/hardening.md) |
+| Site chậm / TTFB cao sau migrate / OPcache | [references/php-perf.md](references/php-perf.md) |
+| Install preventative cron / sync / PHP perf | [references/hardening.md](references/hardening.md) |
 
 ## Hard rules (learned the hard way)
 
@@ -40,6 +44,8 @@ Playbook for aaPanel + Virtual Host (`vhost_virtual`) ops. Prefer **diagnose →
 
 6. **Never leak secrets.** Use `bt 14` / `bt default` on the server for credentials. Unbind domain with `bt 12` only if needed.
 
+7. **After every site migrate / new PHP install: enable OPcache.** Fresh aaPanel PHP often ships OPcache commented out → TTFB 15s+ on XenForo/WordPress. Fix with [references/php-perf.md](references/php-perf.md) / `scripts/optimize_php_perf.sh` **before** chasing app plugins.
+
 ## First commands on any new host
 
 ```bash
@@ -47,6 +53,8 @@ bt default                    # URL, port, admin path (do not paste password to 
 systemctl is-active nginx vhost_virtual
 crontab -l | rg -i 'acme|ssl|vhost|sync'
 ss -tlnp | rg '14805|57001|80|443|60880'
+# Prevent post-migrate PHP slowness (all installed PHP versions):
+for v in /www/server/php/*/bin/php; do $v -m 2>/dev/null | rg -i opcache || echo "NO OPcache: $v"; done
 ```
 
 ## Install reusable scripts (this skill)
@@ -58,6 +66,7 @@ Copy from skill `scripts/` onto the target server:
 | `scripts/sync_vhost_ssl.sh` | `/www/server/panel/script/sync_vhost_ssl.sh` | `10 6 * * *` (after panel renew ~05:xx) |
 | `scripts/vhost_ssl_maintain.py` | `/www/server/panel/script/vhost_ssl_maintain.py` | `20 4 * * *` — repair metadata + renew if ≤20 days |
 | `scripts/patch_acme_hybrid.sh` | run once / after site rebuild | restores hybrid ACME on all VH sites |
+| `scripts/optimize_php_perf.sh` | `/www/server/panel/script/optimize_php_perf.sh` | run once per host / after new PHP version — OPcache+JIT, FPM, optional MySQL/Redis/nginx |
 
 Wrappers + log paths: see [references/hardening.md](references/hardening.md).
 
@@ -68,6 +77,8 @@ Wrappers + log paths: see [references/hardening.md](references/hardening.md).
 - [ ] `letsencrypts.issuer` = `Let's Encrypt`, `endtime` = real unix `notAfter`
 - [ ] Maintain + sync crons present; logs show recent healthy runs
 - [ ] No challenge tokens or private keys left in `/tmp` or webroot
+- [ ] OPcache enabled on **all** installed PHP versions (esp. the one the site uses); FPM not left at `max_children=150` on small RAM
+- [ ] Cloudflare SSL Full/strict if site is orange-clouded (avoid Flexible redirect loops)
 
 ## Related local skill
 

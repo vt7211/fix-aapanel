@@ -27,6 +27,7 @@ bash scripts/patch_acme_hybrid.sh   # after copying to the server
 - Virtual Host UI SSL on port **57001** + sync after panel renew
 - Site Let's Encrypt auto-renew failures (hybrid ACME, metadata repair)
 - Node.js project SSL (`bind_extranet` / nginx map)
+- Post-migrate PHP slowness (OPcache/JIT, FPM, InnoDB, Redis, nginx) for XenForo, WordPress, and all PHP versions
 - Preventative crons and ops hygiene
 
 ## Layout
@@ -39,11 +40,13 @@ fix-aapanel/
 │   ├── access.md
 │   ├── ssl-renew.md
 │   ├── nodejs.md
+│   ├── php-perf.md
 │   └── hardening.md
 └── scripts/
     ├── sync_vhost_ssl.sh
     ├── vhost_ssl_maintain.py
-    └── patch_acme_hybrid.sh
+    ├── patch_acme_hybrid.sh
+    └── optimize_php_perf.sh
 ```
 
 ## Safety
